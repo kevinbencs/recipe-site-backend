@@ -45,7 +45,7 @@ const kell = async () => {
 await kell();
 
 
-let db = new sqlite.Database('./db/data.db', (err) => {
+let db = new sqlite.Database('./src/db/data.db', (err) => {
     if (err) {
         console.error(err.message);
     };
