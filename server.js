@@ -53,7 +53,6 @@ server.post("/", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Connected to the database.');
         })
 
         db.serialize(() => {
@@ -61,7 +60,6 @@ server.post("/", (req, res) => {
                 if (err) {
                     console.log(err.message);
                 }
-                console.log('Select from database.');
                 res.send(meals);
 
             })
@@ -71,7 +69,6 @@ server.post("/", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Close the database connection.');
         })
     }
     else{
@@ -90,7 +87,6 @@ server.post("/category", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Connected to the database.');
         })
 
         db.serialize(() => {
@@ -98,7 +94,6 @@ server.post("/category", (req, res) => {
                 if (err) {
                     console.log(err.message);
                 }
-                console.log(category);
                 res.send(meals);
             });
         });
@@ -107,7 +102,6 @@ server.post("/category", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Close the database connection.');
         })
     }
     else{
@@ -124,7 +118,6 @@ server.post("/recipe", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Connected to the database.');
         })
 
         db.serialize(() => {
@@ -132,8 +125,6 @@ server.post("/recipe", (req, res) => {
                 if (err) {
                     console.log(err.message);
                 }
-                console.log('Select from database.');
-                console.log(meal);
                 res.send(meal);
 
             })
@@ -143,13 +134,11 @@ server.post("/recipe", (req, res) => {
             if (err) {
                 console.log(err.message);
             }
-            console.log('Close the database connection.');
         })
     }
     else{
         res.send({error: "error"});
     }
-
 });
 
 

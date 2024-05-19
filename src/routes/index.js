@@ -6,7 +6,7 @@ import { Verify, VerifyRole } from "../middleware/verify.js";
 
 const app = express();
 
-app.use('/app/auth', Auth);
+app.use(Auth);
 
 app.disable("x-powered-by");
 

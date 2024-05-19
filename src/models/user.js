@@ -5,14 +5,9 @@ import { SECRET_ACCESS_TOKEN } from '../config/config.js';
 
 const UserSchema = new mongoose.Schema(
     {
-        first_name: {
+        name: {
             type: String,
             required: "Your firstname is required",
-            max: 25,
-        },
-        last_name: {
-            type: String,
-            required: "Your lastname is required",
             max: 25,
         },
         email: {
@@ -27,6 +22,9 @@ const UserSchema = new mongoose.Schema(
             required: "Your password is required",
             select: false,
             max: 25,
+        },
+        newsletter: {
+            type: String,
         },
         role: {
             type: String,
@@ -51,6 +49,24 @@ UserSchema.pre("save", function (next) {
             next();
         });
     });
+});
+
+UserSchema.pre("updateOne", function (next) {
+    const update = this.getUpdate();
+
+    if (update.$set && update.$set.password){
+        bcrypt.genSalt(10, (err, salt) => {
+        if (err) return next(err);
+
+        bcrypt.hash(update.$set.password, salt, (err, hash) => {
+            if (err) return next(err);
+
+            this.getUpdate().$set.password = hash;
+            next();
+        });
+    });
+    }
+    
 });
 
 UserSchema.methods.generateAccessJWT = function () {

@@ -222,3 +222,31 @@ db.close((err) => {
     console.log('Close the database connection.');
 });
 
+
+let commentDB = new sqlite.Database('./src/db/comment.db', (err) => {
+    if (err) {
+        console.error(err.message);
+    };
+    console.log('Connected to the database.');
+});
+
+commentDB.serialize(() => {
+    commentDB.run(
+        `CREATE TABLE IF NOT EXISTS COMMENTS(
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            comment TEXT,
+            mealId INT,
+            email TEXT,
+            canChange TEXT,
+        )`
+    )
+});
+
+
+commentDB.close((err) => {
+    if (err) {
+        console.error(err.message);
+    }
+    console.log('Close the database connection.');
+});
+
