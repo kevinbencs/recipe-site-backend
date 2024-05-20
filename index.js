@@ -33,7 +33,7 @@ const kell = async () => {
             const dataRecipe = await responseRecipe.json();
             recipeArray.push(dataRecipe.meals[0]);
             if (b === 60) {
-                await setTimeout(5000, 'Time out').then((res) => { console.log(res) }); 
+                await setTimeout(5000, 'Time out').then((res) => { console.log(res) });
                 b = 0;
             }
         }
@@ -156,9 +156,9 @@ db.serialize(() => {
         strMeasure19,
         strMeasure20
         ) VALUES (
-        '${recipeArray[i].strMeal.replaceAll('\'','\'\'').toLowerCase()}',
+        '${recipeArray[i].strMeal.replaceAll('\'', '\'\'').toLowerCase()}',
         '${recipeArray[i].strCategory.toLowerCase()}',
-        '${recipeArray[i].strInstructions.replaceAll('\'','\'\'')}',
+        '${recipeArray[i].strInstructions.replaceAll('\'', '\'\'')}',
         '${recipeArray[i].strMealThumb}',
         '${recipeArray[i].strYoutube}',
         '${recipeArray[i].strIngredient1 === null ? "" : recipeArray[i].strIngredient1}',
