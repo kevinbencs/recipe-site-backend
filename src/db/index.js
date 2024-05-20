@@ -33,7 +33,7 @@ const kell = async () => {
             const dataRecipe = await responseRecipe.json();
             recipeArray.push(dataRecipe.meals[0]);
             if (b === 60) {
-                await setTimeout(5000, 'Time out').then((res) => { console.log(res) });
+                await setTimeout(5000, 'Wait 5 seconds').then((res) => { console.log(res) });
                 b = 0;
             }
         }
