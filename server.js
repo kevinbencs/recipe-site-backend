@@ -46,7 +46,7 @@ server.get("*", (req, res) => {
 
 
 
-server.post("/", (req, res) => {
+/*server.post("/", (req, res) => {
     const name = req.body.name;
     if (typeof name === "string") {
         const db = new sqlite.Database("./src/db/data.db", sqlite.OPEN_READONLY, (err) => {
@@ -75,7 +75,7 @@ server.post("/", (req, res) => {
         res.send({error: "error"});
     }
 
-});
+});*/
 
 
 

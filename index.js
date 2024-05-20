@@ -55,7 +55,7 @@ let db = new sqlite.Database('./src/db/data.db', (err) => {
 
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS DATA(
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         strMeal TEXT,
         strCategory TEXT,
         strInstructions TEXT,
@@ -233,11 +233,12 @@ let commentDB = new sqlite.Database('./src/db/comment.db', (err) => {
 commentDB.serialize(() => {
     commentDB.run(
         `CREATE TABLE IF NOT EXISTS COMMENTS(
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             comment TEXT,
             mealId INT,
             email TEXT,
-            canChange TEXT,
+            name TEXT,
+            canChange TEXT
         )`
     )
 });

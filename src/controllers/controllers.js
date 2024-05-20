@@ -5,8 +5,14 @@ import jwt from "jsonwebtoken";
 import { SECRET_ACCESS_TOKEN } from '../config/config.js';
 import sqlite3 from 'sqlite3';
 import Newsletter from "../models/newsletter.js";
+import path from 'path';
+import { fileURLToPath } from "url";
+import { type } from "os";
 
-
+const sqlite = sqlite3.verbose();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dbData = path.resolve(__dirname, '../db/data.db');
+const dbComment = path.resolve(__dirname, '../db/comment.db');
 
 /**
  * @route POST /register
@@ -85,14 +91,19 @@ export async function Login(req, res) {
             });
 
         let options = {
-            maxAge: 20 * 60 * 1000, // would expire in 20minutes
             httpOnly: true, // The cookie is only accessible by the web server
             secure: false,
             sameSite: 'lax'
         };
-        console.log(isPasswordValid);
+        /*let options2 = {
+            maxAge: 20 * 60 * 1000, // would expire in 20minutes
+            httpOnly: false, // The cookie is only accessible by the web server
+            secure: false,
+            sameSite: 'lax'
+        };*/
         const token = user.generateAccessJWT(); // generate session token for user
         res.cookie("SessionID", token, options); // set the token to response header, so that the client sends it back on each subsequent request
+        //res.cookie("name", user.name, options2);
         res.status(200).json({
             status: "success",
             data: user.name,
@@ -159,7 +170,7 @@ export async function updatePassword(req, res) {
 
         // Verify using jwt to see if token has been tampered with or if it has expired.
         // that's like checking the integrity of the cookie
-        jwt.verify(cookie, SECRET_ACCESS_TOKEN, async (err, decoded) => {
+        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
             if (err) {
                 // if token has been altered or has expired, return an unauthorized error
                 return res
@@ -201,118 +212,159 @@ export async function updatePassword(req, res) {
  * @desc Get comments
  */
 export async function GetComments(req, res) {
-    const mealId = req.body.mealId;
-    const Header = req.headers['cookie'];// get the session cookie from request header
-    const sqlite = sqlite3.verbose();
-    let comments;
+    try {
+        const mealId = req.body.recipeId;
+        const Header = req.headers['cookie'];// get the session cookie from request header
+        const sqlite = sqlite3.verbose();
 
-    let db = new sqlite.Database('../db/comment.db', (err) => {
-        if (err) {
-            console.error(err.message);
-        };
-        console.log('Connected to the database.');
-    });
 
-    db.serialize(() => {
-        db.all(`SELECT * FROM COMMENTS WHERE mealId = ?`, [req.body.mealId], (err, row) => {
-            if (err) console.log(err.message);
-            comments = row;
-        })
-    })
+        let db = new sqlite.Database(dbComment, sqlite.OPEN_READONLY, (err) => {
+            if (err) {
+                console.error(err.message);
+                
+            };
+        });
 
-    db.close((err) => {
-        if (err) {
-            console.error(err.message);
+
+        if (!Header) {
+            db.serialize(() => {
+                db.all(`SELECT * FROM COMMENTS WHERE mealId = ?`, [Number(mealId)], (err, row) => {
+                    if (err) console.log(err.message);
+                    res.status(200).json( row );
+                })
+            })
+
+            db.close((err) => {
+                if (err) {
+                    console.error(err.message);
+                }
+            });
+            return
         }
-        console.log('Close the database connection.');
-    });
+        else {
+            const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
+            const accessToken = cookie.split(';')[0];
+            const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
+            // if true, send a no content response.
 
-    if (!Header) return res.sendStatus(201); // No content
-    const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-    const accessToken = cookie.split(';')[0];
-    const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
-    // if true, send a no content response.
-    if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+            // Verify using jwt to see if token has been tampered with or if it has expired.
+            // that's like checking the integrity of the cookie
+            jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
+                if (err) {
+                    // if token has been altered or has expired, return an unauthorized error
+                    db.close((err) => {
+                        if (err) {
+                            console.error(err.message);
+                        }
+                    });
+                    return res
+                        .status(401)
+                        .json({ message: "This session has expired. Please login" });
 
-    // Verify using jwt to see if token has been tampered with or if it has expired.
-    // that's like checking the integrity of the cookie
-    jwt.verify(cookie, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-        if (err) {
-            // if token has been altered or has expired, return an unauthorized error
-            return res
-                .status(401)
-                .json({ message: "This session has expired. Please login" });
+                }
+                const { id } = decoded; // get user id from the decoded token
+                const user = await User.findById(id); // find user by that `id`
+
+                db.serialize(() => {
+                    db.all(`SELECT * FROM COMMENTS WHERE mealId = ?`, [mealId], (err, row) => {
+                        if (err) console.log(err.message);
+                        for (let i = 0; i < row.length; i++) {
+                            if (row[i].email === user.email) row[i].canChange = 'true';
+                        }
+                        res.status(200).json( row );
+                    })
+                })
+
+                db.close((err) => {
+                    if (err) {
+                        console.error(err.message);
+                    }
+                });
+
+            });
         }
 
-        const { id } = decoded; // get user id from the decoded token
-        const user = await User.findById(id); // find user by that `id`
-        for (let i = 0; i < comments.length; i++) {
-            if (comments[i].email === user.email) comments[i].canChange = 'true';
-        }
-
-        res.send(comments);
-    });
+    }
+    catch (err) {
+        console.log(err.message);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+        });
+    }
 };
 
 
 /**
  * @route POST /sendcomment
- * @desc Sedn comment
+ * @desc Send comment
  */
 export async function SendComment(req, res) {
-    const mealId = req.body.mealId;
-    const Header = req.headers['cookie'];// get the session cookie from request header
-    const sqlite = sqlite3.verbose();
-    let comments;
-
-    let db = new sqlite.Database('../db/comment.db', (err) => {
-        if (err) {
-            console.error(err.message);
-        };
-        console.log('Connected to the database.');
-    });
+    try {
+        const mealId = req.body.recipeId;
+        const comment = req.body.comment;
+        const Header = req.headers['cookie'];// get the session cookie from request header
 
 
+        if (!Header) return res.sendStatus(201); // No content
+        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
+        const accessToken = cookie.split(';')[0];
+        const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
+        // if true, send a no content response.
+        if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
 
-    if (!Header) return res.sendStatus(201); // No content
-    const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-    const accessToken = cookie.split(';')[0];
-    const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
-    // if true, send a no content response.
-    if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
-
-    // Verify using jwt to see if token has been tampered with or if it has expired.
-    // that's like checking the integrity of the cookie
-    jwt.verify(cookie, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-        if (err) {
-            // if token has been altered or has expired, return an unauthorized error
-            return res
-                .status(401)
-                .json({ message: "This session has expired. Please login" });
-        }
-
-        const { id } = decoded; // get user id from the decoded token
-        const user = await User.findById(id); // find user by that `id`
-
-        db.serialize(() => {
-            db.run(`ISERT INTO COMMENTS (
-                comment TEXT,
-                mealId INT,
-                email TEXT,
-                canChange TEXT,
-            ) VALUE (?, ?, ?, ?)`, [req.body.comment, req.body.mealId, user.email, 'false'], (err) => {
-                if (err) console.log(err.message);
-            })
-        })
-
-        db.close((err) => {
+        // Verify using jwt to see if token has been tampered with or if it has expired.
+        // that's like checking the integrity of the cookie
+        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
             if (err) {
-                console.error(err.message);
+                // if token has been altered or has expired, return an unauthorized error
+                return res
+                    .status(401)
+                    .json({ message: "This session has expired. Please login" });
             }
-            console.log('Close the database connection.');
-        });
 
-    });
+            const { id } = decoded; // get user id from the decoded token
+            const user = await User.findById(id); // find user by that `id`
+
+            let db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
+                if (err) {
+                    console.error(err.message);
+                    res.status(400).json({ status: "failed" });
+                };
+            });
+
+            db.serialize(() => {
+                db.run(`INSERT INTO COMMENTS (
+                comment,
+                mealId,
+                email,
+                name,
+                canChange
+            ) VALUES ( ? , ? , ? , ? , ?)`, [comment, Number(mealId), user.email, user.name, 'false'], (err) => {
+                    if (err) {
+                        console.log(err.message);
+                        res.status(400).json({ status: "failed" });
+                    }
+                })
+            })
+
+            db.close((err) => {
+                if (err) {
+                    console.error(err.message);
+                    res.status(400).json({ status: "failed" });
+                }
+                res.status(200).json({ status: "succes" });
+            });
+
+        });
+    }
+    catch (err) {
+        console.log(err.message);
+        res.status(500).json({
+            status: 'error',
+            message: 'Internal Server Error',
+        });
+    }
 };
 
 
@@ -364,9 +416,112 @@ export async function Subscribe(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            data: [],
             message: 'Internal Server Error',
         });
     }
     res.end();
+};
+
+
+export function GetHomePageRecipes(req, res) {
+    const name = req.body.name;
+    if (typeof name === "string") {
+        const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
+            if (err) {
+                console.log(err.message);
+            }
+        })
+
+        db.serialize(() => {
+            db.all(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE strMeal LIKE ? `, ['%' + name + '%'], (err, meals) => {
+                if (err) {
+                    console.log(err.message);
+                }
+                res.send(meals);
+
+            })
+        });
+
+        db.close((err) => {
+            if (err) {
+                console.log(err.message);
+            }
+        })
+    }
+    else {
+        res.send({ error: "error" });
+    }
+
 }
+
+export async function UpdateComment(req, res) {
+    const {comment, id} = req.body;
+    if(typeof comment === 'string'){
+        try{
+            const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
+                if (err) {
+                    console.log(err.message);
+                }
+            })
+            db.serialize(() => {
+                db.run(`UPDATE COMMENTS SET comment = ? WHERE id = ? `, [comment, Number(id)], (err) => {
+                    if (err) {
+                        console.log(err.message);
+                    }
+                })
+            });
+
+            db.close((err) => {
+                if (err) {
+                    console.log(err.message);
+                }
+                res.status(200).json({code: 200});
+            })
+        }
+        catch(err){
+            res.status(500).json({
+                status: "error",
+                code: 500,
+                message: 'Internal Server Error',
+            });
+        }
+    }
+    else{
+        res.status(402).json({
+            status: "error"
+        });
+    }
+};
+
+
+export async function DeleteComment(req, res) {
+    try{
+        const id = req.body.id;
+        const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
+            if (err) {
+                console.log(err.message);
+            }
+        })
+        db.serialize(() => {
+            db.run(`DELETE FROM COMMENTS  WHERE id = ? `, [Number(id)], (err) => {
+                if (err) {
+                    console.log(err.message);
+                }
+            })
+        });
+
+        db.close((err) => {
+            if (err) {
+                console.log(err.message);
+            }
+            res.status(200).json({code: 200});
+        })
+    }
+    catch(err){
+        res.status(500).json({
+            status: "error",
+            code: 500,
+            message: 'Internal Server Error',
+        });
+    }
+};

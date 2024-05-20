@@ -1,7 +1,8 @@
 import express from "express";
-import { Register, Login, Logout, updatePassword, GetComments, SendComment, Subscribe } from "../controllers/controllers.js";
+import { Register, Login, Logout, updatePassword, GetComments, SendComment, Subscribe, GetHomePageRecipes, UpdateComment, DeleteComment } from "../controllers/controllers.js";
 import Validate from "../middleware/validate.js";
 import { check } from "express-validator";
+import { Verify } from "../middleware/verify.js";
 
 const router = express.Router();
 
@@ -80,7 +81,13 @@ router.post(
 router.post('/getcomment', GetComments);
 
 //Send comments route == POST requestS
-router.post('/sendcomment', SendComment);
+router.post('/sendcomment', 
+    check("comment")
+        .notEmpty()
+        .withMessage('Comment is empty.'),
+    Validate,
+    SendComment
+);
 
 //Subcribe for newsletter route == POST request
 router.post('/newsletter',
@@ -96,5 +103,23 @@ router.post('/newsletter',
     Validate,
     Subscribe
 );
+
+//Edit a comment router == POST request
+router.post('/updatecomment',
+    check("comment")
+        .notEmpty()
+        .withMessage("Comment is empty. Please change the comment or delete"),
+    Validate,
+    UpdateComment
+);
+
+
+//Delete a comment router == POST request
+router.post('/deletecomment', DeleteComment);
+
+
+router.get('/getaccount', Verify);
+
+router.post('/', GetHomePageRecipes);
 
 export default router;

@@ -21,7 +21,7 @@ export async function Verify(req, res, next) {
 
         // Verify using jwt to see if token has been tampered with or if it has expired.
         // that's like checking the integrity of the cookie
-        jwt.verify(cookie, SECRET_ACCESS_TOKEN, async (err, decoded) => {
+        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
             if (err) {
                 // if token has been altered or has expired, return an unauthorized error
                 return res
@@ -31,8 +31,7 @@ export async function Verify(req, res, next) {
 
             const { id } = decoded; // get user id from the decoded token
             const user = await User.findById(id); // find user by that `id`
-            const { password, ...data } = user._doc; // return user object without the password
-            req.user = data; // put the data object into req.user
+            res.status(200).json({name: user.name});
             next();
         });
     } catch (err) {
@@ -45,25 +44,3 @@ export async function Verify(req, res, next) {
     }
 }
 
-export function VerifyRole(req, res, next) {
-    try {
-        const user = req.user; // we have access to the user object from the request
-        const { role } = user; // extract the user role
-        // check if user has no advance privileges
-        // return an unathorized response
-        if (role !== "0x88") {
-            return res.status(401).json({
-                status: "failed",
-                message: "You are not authorized to view this page.",
-            });
-        }
-        next(); // continue to the next middleware or function
-    } catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            data: [],
-            message: "Internal Server Error",
-        });
-    }
-}
