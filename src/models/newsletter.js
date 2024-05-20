@@ -13,7 +13,7 @@ const NewsLetterSchema = new mongoose.Schema(
             lowercase: true,
             trim: true,
         },
-        vegetable: {
+        vegetarian: {
             type: String,
             lowercase: true
         },

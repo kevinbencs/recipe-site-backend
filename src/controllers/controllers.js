@@ -26,8 +26,7 @@ export async function Register(req, res) {
         const newUser = new User({
             name,
             email,
-            password,
-            newsletter
+            password
         });
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -38,6 +37,23 @@ export async function Register(req, res) {
                 message: "It seems you already have an account, please log in instead.",
             });
         await newUser.save(); // save new user into the database
+        if (newsletter === true){
+            const existingNewsletter = await Newsletter.findOne({email});
+            
+            if(!existingNewsletter) {
+                const newNewsletter = new Newsletter({
+                    email,
+                    name,
+                    vegetarian: "true",
+                    pasta: "true",
+                    seafood: "true",
+                    side: "true",
+                    dessert: "true",
+                    meat: "true"
+                })
+                await newNewsletter.save();
+            }
+        }
         res.status(200).json({
             status: 'success',
             data: [],
@@ -358,14 +374,14 @@ export async function SendComment(req, res) {
 export async function Subscribe(req, res) {
     // get required variables from request body
     // using es6 object destructing
-    const { name, email, meat, vegetable, dessert, pasta, seafood, side } = req.body;
+    const { name, email, meat, vegetarian, dessert, pasta, seafood, side } = req.body;
     try {
         // create an instance of a user
         const newUser = new Newsletter({
             name,
             email,
             meat,
-            vegetable,
+            vegetarian,
             dessert,
             pasta,
             seafood,

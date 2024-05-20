@@ -23,9 +23,6 @@ const UserSchema = new mongoose.Schema(
             select: false,
             max: 25,
         },
-        newsletter: {
-            type: String,
-        },
         role: {
             type: String,
             required: true,
