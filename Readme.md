@@ -2,15 +2,13 @@
 
 Itt látható egy általam létrehozott recept weboldal backend kódja.
 
-A weboldal frontend kódja: https://github.com/kevinbencs/recipe-site-frontend.
+A weboldal frontend kódja: https://github.com/kevinbencs/recipe-site-frontend
 
-Backend néküli recept oldal: https://github.com/kevinbencs/recipe-site
-
-Backend nélküli recept weboldal Github pages-e: https://kevinbencs.github.io/recipe-site/
+Az oldal megtekinthető: https://recipe-deploye.vercel.app/
 
 Használt technolóiák: `node.js, express, sqlite, mongodb, bcrypt, cookie-parser, nodemon, cors, express-validator.`
 
-Használíti útmutató:
+## Használíti útmutató:
 
 1. telepítsük a függőségeket `npm installal`.
 2. hozzunk létre egy .env fájlt a főkönyvtárba, ami a következőket tartalmazza:
@@ -27,3 +25,11 @@ Használíti útmutató:
 6. Az `npm run dev`-el már indíthatjuk is a szervert.
 
 A fronted már megtalálható a `public` könyvtárban.
+
+
+<!--## A kód leírása
+
+A szerver a `server.js`-el kezdődik. Itt hozom létre és indítom el az `express` szervert, megteremtem a kapcsolatot a `MongoDB`-vel, továbbá beállítom, hogy bármilyen URL kérésre a `public` könyvtárban lévő `html` fájl legyen elküldve.-->
+
+
+

@@ -1,7 +1,6 @@
 import express, { urlencoded } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import sqlite3 from "sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -9,9 +8,7 @@ import { PORT, URI } from "./src/config/config.js";
 import App from "./src/routes/index.js";
 
 
-const sqlite = sqlite3.verbose();
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 
 const server = express();
 server.use(cors());

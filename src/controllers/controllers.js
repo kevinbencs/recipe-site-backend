@@ -33,7 +33,6 @@ export async function Register(req, res) {
         if (existingUser)
             return res.status(400).json({
                 status: "failed",
-                data: [],
                 message: "It seems you already have an account, please log in instead.",
             });
         await newUser.save(); // save new user into the database
@@ -56,7 +55,6 @@ export async function Register(req, res) {
         }
         res.status(200).json({
             status: 'success',
-            data: [],
             message:
                 'Thank you for registering with us. Your account has been successfully created.',
         });
@@ -64,7 +62,6 @@ export async function Register(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            data: [],
             message: 'Internal Server Error',
         });
     }
@@ -85,7 +82,6 @@ export async function Login(req, res) {
         if (!user)
             return res.status(401).json({
                 status: "failed",
-                data: [],
                 message: "Account does not exist",
             });
 
@@ -100,7 +96,6 @@ export async function Login(req, res) {
         if (!isPasswordValid)
             return res.status(401).json({
                 status: "failed",
-                data: [],
                 message:
                     "Invalid email or password. Please try again with the correct credentials.",
             });
@@ -122,7 +117,6 @@ export async function Login(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            data: [],
             message: "Internal Server Error",
         });
     }
@@ -399,14 +393,12 @@ export async function Subscribe(req, res) {
             newUser.pasta === 'false' && newUser.seafood === 'false' && newUser.side === 'false')
             return res.status(400).json({
                 status: "failed",
-                data: [],
                 message: "Please select min one option.",
             });
 
         await newUser.save(); // save new user into the database
         res.status(200).json({
             status: 'success',
-            data: [],
             message:
                 'Thank you for your subscription.',
         });
