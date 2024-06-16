@@ -12,6 +12,7 @@ comment.db
 
 # production
 /build
+Readme.pdf
 
 # misc
 .DS_Store
