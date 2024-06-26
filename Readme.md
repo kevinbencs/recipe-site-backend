@@ -35,7 +35,7 @@ The frontend is already located in the `public` directory.
 
 ## Description of the code
 
-The server starts with `server.js`. The express server is created and started, the connection to MongoDB is established, and it is set up to send the HTML file in the `public` directory for any URL request here. The rest of the server is in the `src` directory.
+The server starts with `server.js`. Here, the express server starts, connects to MongoDB, and sends the HTML file for any URL request (the HTML file is in the `public` directory). The rest of the server is in the `src` directory.
 
 
 The `config.js` reads `URI`, `PORT`, and `SECRET_ACCESS_TOKEN` from the `.env` file.
@@ -46,7 +46,10 @@ The `auth.js` in the `routes` directory contains the post requests. Here, the da
 
 Further handling of post requests is in `controllers.js` in the `controllers` directory.
 
-Verification of whether someone is logged into their account occurs in `index.js`. The definition of the `Verify` function - what is used in the `index.js` - is in `verify.js` in the `middleware` directory.
+`Index.js` checks if someone has logged into their account.
+The `verify.js` file in the `middleware` directory defines the `Verify` function used in `index.js`.
+
+
 
 
 
