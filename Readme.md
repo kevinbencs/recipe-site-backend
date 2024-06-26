@@ -1,19 +1,19 @@
-# Recept weboldal
+# Recipe website
 
-Itt látható egy általam létrehozott recept weboldal backend kódja.
+Here is the backend code for a recipe website.
 
-A weboldal frontend kódja: https://github.com/kevinbencs/recipe-site-frontend
+The frontend code for the website: https://github.com/kevinbencs/recipe-site-frontend
 
-Az oldal megtekinthető: https://recipe-deploye.vercel.app/
+The website can be viewed here: https://recipe-deploye.vercel.app/
 
-Használt technolóiák: `node.js, express, sqlite, mongodb, bcrypt, cookie-parser, nodemon, cors, express-validator.`
+Technologies used: `node.js, express, sqlite, mongodb, bcrypt, cookie-parser, nodemon, cors, express-validator.`
 
 <br/><br/>
 
-## Használíti útmutató:
+## Usage guide:
 
-1. telepítsük a függőségeket `npm installal`.
-2. hozzunk létre egy .env fájlt a főkönyvtárba, ami a következőket tartalmazza:
+1. Install the dependencies with `npm install`.
+2. Create a `.env` file in the root directory containing the following:
 ```
 #DATABASE_STRING
 URI=''
@@ -23,28 +23,30 @@ PORT=3001
 SECRET_ACCESS_TOKEN=''
 ```
 
-3. írjuk be a terminálba, hogy `npm run secretkey`. A megkapott kódot másoljuk be a .env fájl SECRET_ACCESS_TOKEN-jéhez ('' közé).
-4. Hozzunk létre egy adatbázist a mongodb-ben, majd az ahoz tartozó URI-t másoljuk be a .env fájlba.
-5. Írjuk be a terminálba, hogy `npm run database`. Ekkor receptekkel töltjük fel az sqlite adatbázist.
-6. Az `npm run dev`-el már indíthatjuk is a szervert.
+3. Enter `npm run` secretkey in the terminal. Copy the received code into the `.env` file under `SECRET_ACCESS_TOKEN` (inside the quotes).
+4. Create a database in MongoDB, then copy the corresponding URI into the `.env` file.
+5. Enter `npm run database` in the terminal. It will populate the sqlite database with recipes.
+6. Start the server with `npm run dev`.
 
-A fronted már megtalálható a `public` könyvtárban.
+The frontend is already located in the `public` directory.
 
 <br/><br/>
 
-## A kód leírása
 
-A szerver a `server.js`-el kezdődik. Itt van létrehozva és elindítva az `express` szerver, itt található a `MongoDB`-vel létrehozott kapcsolat, továbbá itt kerül beállításra, hogy bármilyen URL kérésre a `public` könyvtárban lévő `html` fájl legyen elküldve. A szerver többi része az `src` könyvtáron belül látható.
+## Description of the code
 
-A `.env`-ből az `URI`,`PORT` és a `SECRET_ACCESS_TOKEN` beolvasása a `config.js`-ben történik meg.
+The server starts with `server.js`. The express server is created and started, the connection to MongoDB is established, and it is set up to send the HTML file in the `public` directory for any URL request here. The rest of the server is in the `src` directory.
 
-A `models` könyvtárban található a fiókok, a blacklist és a hírlevelek mongoose séma.
 
-A `routes` könyvtárban lévő `auth.js`-ben találhatóak a post requestek. Itt megy végbe az űrlapokon beküldött adatok ellenőrzése, melyből a `Validate` függvény a `validate.js`-ben lett definiálva.
+The `config.js` reads `URI`, `PORT`, and `SECRET_ACCESS_TOKEN` from the `.env` file.
 
-A `controllers` könyvtárban található `controllers.js`-ben találhatóak a post requestek tovvábbi kezelése.
+In the `models `directory, you will find the `Mongoose schemas` for `accounts`, `blacklist`, and `newsletters`.
 
-Annak ellenőrzése, hogy valaki be van-e jelentkezve a fiókjába, az `index.js`-ben történik meg. Az itt használt `Verify` függvény a `middleware` könyvtárban található `verify.js`-ben lett definiálva.
+The `auth.js` in the `routes` directory contains the post requests. Here, the data submitted through forms is validated, with the `Validate` function defined in `validate.js`.
+
+Further handling of post requests is in `controllers.js` in the `controllers` directory.
+
+Verification of whether someone is logged into their account occurs in `index.js`. The definition of the `Verify` function - what is used in the `index.js` - is in `verify.js` in the `middleware` directory.
 
 
 
