@@ -55,8 +55,8 @@ router.post(
 // Logout route == GET request
 router.get('/logout', Logout);
 
-//New password route == POST request
-router.post(
+//New password route == PATCH request
+router.patch(
     "/newpassword",
     check("password")
         .notEmpty()
@@ -76,11 +76,11 @@ router.post(
     updatePassword
 );
 
-//GET comments route == POST requestS
-router.post('/getcomment', GetComments);
+//GET comments route == GET requestS
+router.get('/getcomment/:recipeId', GetComments);
 
 //Send comments route == POST requestS
-router.post('/sendcomment',
+router.post('/sendcomment/:recipeId',
     check("comment")
         .notEmpty()
         .withMessage('Comment is empty.'),
@@ -103,8 +103,8 @@ router.post('/newsletter',
     Subscribe
 );
 
-//Edit a comment router == POST request
-router.post('/updatecomment',
+//Edit a comment router == PATCH request
+router.patch('/updatecomment/:recipeId',
     check("comment")
         .notEmpty()
         .withMessage("Comment is empty. Please change the comment or delete"),
@@ -113,17 +113,17 @@ router.post('/updatecomment',
 );
 
 
-//Delete a comment router == POST request
-router.post('/deletecomment', DeleteComment);
+//Delete a comment router == Delete request
+router.delete('/deletecomment/:recipeId', DeleteComment);
 
 
 //Get recipes for home page router == POST request
 router.post('/', GetHomePageRecipes);
 
-//Get recipes for category page router == POST request
-router.post('/category', GetCategoryPageRecipes);
+//Get recipes for category page router == Get request
+router.get('/category/:name', GetCategoryPageRecipes);
 
-//Get recipe for recipe page router == POST request
-router.post('/recipe', GetRecipePageRecipes);
+//Get recipe for recipe page router == Get request
+router.get('/recipe/:name', GetRecipePageRecipes);
 
 export default router;

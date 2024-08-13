@@ -156,7 +156,7 @@ export async function Logout(req, res) {
 };
 
 /**
- * @route POST /newpassword
+ * @route PATCH /newpassword
  * @desc Change password
  */
 export async function updatePassword(req, res) {
@@ -209,12 +209,12 @@ export async function updatePassword(req, res) {
 
 
 /**
- * @route POST /getcomment
+ * @route GET /getcomment/:recipeId
  * @desc Get comments
  */
 export async function GetComments(req, res) {
     try {
-        const mealId = req.body.recipeId;
+        const mealId = req.param.recipeId;
         const Header = req.headers['cookie'];// get the session cookie from request header
         const sqlite = sqlite3.verbose();
 
@@ -292,16 +292,16 @@ export async function GetComments(req, res) {
 
 
 /**
- * @route POST /sendcomment
+ * @route POST /sendcomment/:recipeId
  * @desc Send comment
  */
 export async function SendComment(req, res) {
     try {
-        const mealId = req.body.recipeId;
+        const mealId = req.param.recipeId;
         const comment = req.body.comment;
         const Header = req.headers['cookie'];// get the session cookie from request header
 
-        if (!Header) return res.sendStatus(201); // No content
+        if (!Header) return res.status(400); // No content
         const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
         const accessToken = cookie.split(';')[0];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
@@ -451,11 +451,12 @@ export function GetHomePageRecipes(req, res) {
 
 
 /**
- * @route POST /updatecomment
+ * @route PATCH /updatecomment/:recipeId
  * @desc Update a comment
  */
 export async function UpdateComment(req, res) {
-    const { comment, id } = req.body;
+    const id = req.param.recipeId
+    const { comment } = req.body;
     if (typeof comment === 'string') {
         try {
             const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
@@ -487,19 +488,19 @@ export async function UpdateComment(req, res) {
         }
     }
     else {
-        res.status(402).json({
+        res.status(400).json({
             status: "error"
         });
     }
 };
 
 /**
- * @route POST /deletecomment
+ * @route DELETE /deletecomment/:recipeId
  * @desc Delete a comment
  */
 export async function DeleteComment(req, res) {
     try {
-        const id = req.body.id;
+        const id = req.param.recipeId;
         const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
             if (err) {
                 console.log(err.message);
@@ -531,11 +532,11 @@ export async function DeleteComment(req, res) {
 
 
 /**
- * @route POST /category
+ * @route GET /category/:name
  * @desc Get recipe for category page
  */
 export function GetCategoryPageRecipes(req, res) {
-    const category = req.body.category;
+    const category = req.param.name;
     if (typeof category === "string") {
         const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
             if (err) {
@@ -559,17 +560,21 @@ export function GetCategoryPageRecipes(req, res) {
         })
     }
     else {
-        res.send({ error: "error" });
+        res.status(500).json({
+            status: "error",
+            code: 500,
+            message: 'Internal Server Error',
+        });
     }
 }
 
 
 /**
- * @route POST /recipe
+ * @route GET /recipe/:name
  * @desc Get recipe for recipe page
  */
 export function GetRecipePageRecipes(req, res) {
-    const name = req.body.name;
+    const name = req.param.name;
     if (typeof name === "string") {
         const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
             if (err) {
@@ -582,7 +587,7 @@ export function GetRecipePageRecipes(req, res) {
                 if (err) {
                     console.log(err.message);
                 }
-                res.send(meal);
+                res.status(200).json(meal);
 
             })
         });
@@ -594,7 +599,11 @@ export function GetRecipePageRecipes(req, res) {
         })
     }
     else {
-        res.send({ error: "error" });
+        res.status(500).json({
+            status: "error",
+            code: 500,
+            message: 'Internal Server Error',
+        });
     }
 
 }

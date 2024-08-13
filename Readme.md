@@ -50,6 +50,51 @@ Further handling of post requests is in `controllers.js` in the `controllers` di
 The `verify.js` file in the `middleware` directory defines the `Verify` function used in `index.js`.
 
 
+<br/><br/>
+
+## Requests
+
+
+POST /register
+Registers a user
+
+POST /login
+logs in a user
+
+GET /logout
+Logout user
+
+PATCH /newpassword
+Change password
+
+GET /getcomment/:recipeId
+Get comments
+
+POST /sendcomment/:recipeId
+Send comment
+
+POST /newsletter
+Subsribe for newsletter
+
+POST /
+Get recipe for home page
+ 
+PATCH /updatecomment/:recipeId
+Update a comment
+ 
+DELETE /deletecomment/:recipeId
+Delete a comment
+
+GET /category/:name
+Get recipe for category page
+
+GET /recipe/:name
+Get recipe for recipe page
+ 
+
+
+
+
 
 
 
