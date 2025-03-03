@@ -117,13 +117,29 @@ router.patch('/updatecomment/:recipeId',
 router.delete('/deletecomment/:recipeId', DeleteComment);
 
 
-//Get recipes for home page router == POST request
-router.post('/', GetHomePageRecipes);
 
-//Get recipes for category page router == Get request
-router.get('/category/:name', GetCategoryPageRecipes);
+//GET search meal route == GET request
+router.get('/api/search/:text',GetSearch);
 
-//Get recipe for recipe page router == Get request
-router.get('/recipe/:name', GetRecipePageRecipes);
+//GET search meal route == GET request
+router.get('/api/search/:text/:number',GetSearchMore);
+
+//GET comments route == GET request
+router.get('/api/comments/:recipeId',GetComments)
+
+//Get recipes for recipe page router == GET request
+router.get('/api/morerecipe/:title/:number', GetPageRecipesMore);
+
+//Get recipe description for recipe page router == GET request
+router.get('/api/title/:title', GetRecipePageRecipes);
+
+//Get recipes for category page router == GET request
+router.get('/api/category/:category', GetCategoryPageRecipes);
+
+//Get recipes for category page router == GET request
+router.get('/api/:category/:number', GetCategoryPageRecipesMore);
+
+//Get recipes for home page router == GET request
+router.get('/homePage', GetHomePageRecipes);
 
 export default router;

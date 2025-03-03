@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import { PORT, URI } from "./src/config/config.js";
 import App from "./src/routes/index.js";
-
+import {db} from "./src/db/db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -37,4 +37,16 @@ server.listen(PORT, () => {
 
 server.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, './public/index.html'))
+});
+
+process.on('SIGINT', async() => {
+    await mongoose.disconnect();
+    db.close((err) => {
+        if (err) {
+            console.log('DB Close Error:', err.message);
+        } else {
+            console.log('Database connection closed');
+        }
+        process.exit(0);
+    });
 });

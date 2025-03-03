@@ -3,15 +3,24 @@ import bcrypt from "bcrypt";
 import Blacklist from '../models/blacklist.js';
 import jwt from "jsonwebtoken";
 import { SECRET_ACCESS_TOKEN } from '../config/config.js';
-import sqlite3 from 'sqlite3';
 import Newsletter from "../models/newsletter.js";
-import path from 'path';
-import { fileURLToPath } from "url";
+import Comment from "../models/comment.js";
+import NodeCache from "node-cache";
+import { db } from "../db/db.js";
 
-const sqlite = sqlite3.verbose();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbData = path.resolve(__dirname, '../db/data.db');
-const dbComment = path.resolve(__dirname, '../db/comment.db');
+
+const myCache = new NodeCache();
+
+
+async function queryDB(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) {console.log(err) ;reject(err);}
+            else resolve(rows);
+        });
+    });
+}
+
 
 /**
  * @route POST /register
@@ -22,6 +31,7 @@ export async function Register(req, res) {
     // using es6 object destructing
     const { name, email, password, newsletter } = req.body;
     try {
+
         // create an instance of a user
         const newUser = new User({
             name,
@@ -30,16 +40,18 @@ export async function Register(req, res) {
         });
         // Check if user already exists
         const existingUser = await User.findOne({ email });
+        console.log(existingUser);
         if (existingUser)
             return res.status(400).json({
                 status: "failed",
-                message: "It seems you already have an account, please log in instead.",
+                message: ["It seems you already have an account, please log in instead."],
             });
+
         await newUser.save(); // save new user into the database
-        if (newsletter === true){
-            const existingNewsletter = await Newsletter.findOne({email});
-            
-            if(!existingNewsletter) {
+        if (newsletter === true) {
+            const existingNewsletter = await Newsletter.findOne({ email });
+
+            if (!existingNewsletter) {
                 const newNewsletter = new Newsletter({
                     email,
                     name,
@@ -62,7 +74,7 @@ export async function Register(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            message: 'Internal Server Error',
+            message: ['Internal Server Error'],
         });
     }
     res.end();
@@ -82,7 +94,7 @@ export async function Login(req, res) {
         if (!user)
             return res.status(401).json({
                 status: "failed",
-                message: "Account does not exist",
+                message: ["Account does not exist"],
             });
 
         // if user exists
@@ -97,7 +109,7 @@ export async function Login(req, res) {
             return res.status(401).json({
                 status: "failed",
                 message:
-                    "Invalid email or password. Please try again with the correct credentials.",
+                    ["Invalid email or password. Please try again with the correct credentials."],
             });
 
         let options = {
@@ -117,7 +129,7 @@ export async function Login(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            message: "Internal Server Error",
+            message: ["Internal Server Error"],
         });
     }
     res.end();
@@ -149,14 +161,14 @@ export async function Logout(req, res) {
     } catch (err) {
         res.status(500).json({
             status: 'error',
-            message: 'Internal Server Error',
+            message: ['Internal Server Error'],
         });
     }
     res.end();
 };
 
 /**
- * @route PATCH /newpassword
+ * @route POST /newpassword
  * @desc Change password
  */
 export async function updatePassword(req, res) {
@@ -182,7 +194,6 @@ export async function updatePassword(req, res) {
             const { id } = decoded; // get user id from the decoded token
             const user = await User.findById(id); // find user by that `id`
             const result = await User.updateOne({ email: user.email }, { $set: { password: newPassword } });
-            console.log(result);
 
             if (result.modifiedCount === 1) {
                 res.status(200).json({
@@ -209,73 +220,55 @@ export async function updatePassword(req, res) {
 
 
 /**
- * @route GET /getcomment/:recipeId
+ * @route POST /getcomment
  * @desc Get comments
  */
 export async function GetComments(req, res) {
     try {
-        const mealId = req.param.recipeId;
+        const mealId = String(req.params.recipeId);
         const Header = req.headers['cookie'];// get the session cookie from request header
-        const sqlite = sqlite3.verbose();
-
-        let db = new sqlite.Database(dbComment, sqlite.OPEN_READONLY, (err) => {
-            if (err) {
-                console.error(err.message);
-
-            };
-        });
-
+        
         if (!Header) {
-            db.serialize(() => {
-                db.all(`SELECT * FROM COMMENTS WHERE mealId = ?`, [Number(mealId)], (err, row) => {
-                    if (err) console.log(err.message);
-                    res.status(200).json(row);
-                })
-            })
+            const rows = await Comment.find({ mealId: mealId });
+            if (rows.length !== 0) {
+                res.status(200).json(rows);
+            }
+            else {
+                res.status(200).json([]);
+            }
 
-            db.close((err) => {
-                if (err) {
-                    console.error(err.message);
-                }
-            });
             return
         }
         else {
+
             const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
             const accessToken = cookie.split(';')[0];
             const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
 
             jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
+
                 if (err) {
                     // if token has been altered or has expired, return an unauthorized error
-                    db.close((err) => {
-                        if (err) {
-                            console.error(err.message);
-                        }
-                    });
                     return res
                         .status(401)
                         .json({ message: "This session has expired. Please login" });
 
                 }
+
                 const { id } = decoded; // get user id from the decoded token
                 const user = await User.findById(id); // find user by that `id`
 
-                db.serialize(() => {
-                    db.all(`SELECT * FROM COMMENTS WHERE mealId = ?`, [mealId], (err, row) => {
-                        if (err) console.log(err.message);
-                        for (let i = 0; i < row.length; i++) {
-                            if (row[i].email === user.email) row[i].canChange = 'true';
-                        }
-                        res.status(200).json(row);
-                    })
-                })
-
-                db.close((err) => {
-                    if (err) {
-                        console.error(err.message);
+                const rows = await Comment.find({ mealId: mealId });
+                if (rows.length !== 0) {
+                    for (let i = 0; i < rows.length; i++) {
+                        if (rows[i].email === user.email) rows[i].canChange = 'true';
                     }
-                });
+                    res.status(200).json(rows);
+                }
+                else {
+
+                    res.status(200).json([]);
+                }
 
             });
         }
@@ -292,16 +285,16 @@ export async function GetComments(req, res) {
 
 
 /**
- * @route POST /sendcomment/:recipeId
+ * @route POST /sendcomment
  * @desc Send comment
  */
 export async function SendComment(req, res) {
     try {
-        const mealId = req.param.recipeId;
+        const mealId = String(req.body.recipeId);
         const comment = req.body.comment;
         const Header = req.headers['cookie'];// get the session cookie from request header
 
-        if (!Header) return res.status(400); // No content
+        if (!Header) return res.sendStatus(201); // No content
         const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
         const accessToken = cookie.split(';')[0];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
@@ -319,35 +312,18 @@ export async function SendComment(req, res) {
             const { id } = decoded; // get user id from the decoded token
             const user = await User.findById(id); // find user by that `id`
 
-            let db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
-                if (err) {
-                    console.error(err.message);
-                    res.status(400).json({ status: "failed" });
-                };
-            });
 
-            db.serialize(() => {
-                db.run(`INSERT INTO COMMENTS (
+            const newComment = new Comment({
                 comment,
                 mealId,
-                email,
-                name,
-                canChange
-            ) VALUES ( ? , ? , ? , ? , ?)`, [comment, Number(mealId), user.email, user.name, 'false'], (err) => {
-                    if (err) {
-                        console.log(err.message);
-                        res.status(400).json({ status: "failed" });
-                    }
-                })
+                email: user.email,
+                name: user.name,
+                canChange: 'false'
             })
 
-            db.close((err) => {
-                if (err) {
-                    console.error(err.message);
-                    res.status(400).json({ status: "failed" });
-                }
-                res.status(200).json({ status: "succes" });
-            });
+            await newComment.save();
+
+            res.status(200).json({ message: 'Comment saved' });
 
         });
     }
@@ -383,13 +359,14 @@ export async function Subscribe(req, res) {
         });
         // Check if user already exists
         const existingNewsletter = await Newsletter.findOne({ email });
-        if (existingNewsletter)
+        if (existingNewsletter) {
             return res.status(400).json({
                 status: "failed",
-                data: [],
                 message: "It seems you already have a subscription.",
             });
-        if (newUser.meat === 'false' && newUser.vegetable === 'false' && newUser.dessert === 'false' &&
+        }
+
+        if (newUser.meat === 'false' && newUser.vegetarian === 'false' && newUser.dessert === 'false' &&
             newUser.pasta === 'false' && newUser.seafood === 'false' && newUser.side === 'false')
             return res.status(400).json({
                 status: "failed",
@@ -407,77 +384,59 @@ export async function Subscribe(req, res) {
         res.status(500).json({
             status: "error",
             code: 500,
-            message: 'Internal Server Error',
+            message: ['Internal Server Error'],
         });
     }
     res.end();
 };
 
 
-/**
- * @route POST /
- * @desc Get recipe for home page
- */
-export function GetHomePageRecipes(req, res) {
-    const name = req.body.name;
-    if (typeof name === "string") {
-        const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
-
-        db.serialize(() => {
-            db.all(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE strMeal LIKE ? `, ['%' + name + '%'], (err, meals) => {
-                if (err) {
-                    console.log(err.message);
-                }
-                res.send(meals);
-
-            })
-        });
-
-        db.close((err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
-    }
-    else {
-        res.send({ error: "error" });
-    }
-
-}
 
 
 /**
- * @route PATCH /updatecomment/:recipeId
+ * @route POST /updatecomment
  * @desc Update a comment
  */
 export async function UpdateComment(req, res) {
-    const id = req.param.recipeId
-    const { comment } = req.body;
+    const comment = req.body.comment;
+    const _id = req.body.id;
     if (typeof comment === 'string') {
         try {
-            const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
-                if (err) {
-                    console.log(err.message);
-                }
-            })
-            db.serialize(() => {
-                db.run(`UPDATE COMMENTS SET comment = ? WHERE id = ? `, [comment, Number(id)], (err) => {
-                    if (err) {
-                        console.log(err.message);
-                    }
-                })
-            });
 
-            db.close((err) => {
+            const Header = req.headers['cookie'];// get the session cookie from request header
+
+            if (!Header) return res.sendStatus(401); // No content
+            const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
+            const accessToken = cookie.split(';')[0];
+            const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
+            // if true, send a no content response.
+            if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+
+            jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
                 if (err) {
-                    console.log(err.message);
+                    // if token has been altered or has expired, return an unauthorized error
+                    return res
+                        .status(401)
+                        .json({ message: "This session has expired. Please login" });
                 }
-                res.status(200).json({ code: 200 });
-            })
+
+                const { id } = decoded; // get user id from the decoded token
+                const user = await User.findById(id); // find user by that `id`
+                const commentResult = await Comment.findById(_id);
+
+                if (user.email === commentResult.email) {
+                    const result = await Comment.findByIdAndUpdate(_id, { $set: { comment: comment } }) //pdateOne({ id: _id }, );
+                    if (result.modifiedCount === 1) {
+                        res.status(200).json({ message: 'Comment updated' });
+                    }
+                    else {
+                        res.status(204).json({ message: 'Server error' });
+                    }
+                }
+                else {
+                    res.status(204).json({ message: 'Server error' });
+                }
+            });
         }
         catch (err) {
             res.status(500).json({
@@ -488,38 +447,53 @@ export async function UpdateComment(req, res) {
         }
     }
     else {
-        res.status(400).json({
+        res.status(402).json({
             status: "error"
         });
     }
 };
 
 /**
- * @route DELETE /deletecomment/:recipeId
+ * @route POST /deletecomment
  * @desc Delete a comment
  */
 export async function DeleteComment(req, res) {
+    const _id = req.body.id;
     try {
-        const id = req.param.recipeId;
-        const db = new sqlite.Database(dbComment, sqlite.OPEN_READWRITE, (err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
-        db.serialize(() => {
-            db.run(`DELETE FROM COMMENTS  WHERE id = ? `, [Number(id)], (err) => {
-                if (err) {
-                    console.log(err.message);
-                }
-            })
-        });
+        console.log(_id);
+        const Header = req.headers['cookie'];// get the session cookie from request header
 
-        db.close((err) => {
+        if (!Header) return res.sendStatus(401); // No content
+        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
+        const accessToken = cookie.split(';')[0];
+        const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
+        // if true, send a no content response.
+        if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+
+        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
             if (err) {
-                console.log(err.message);
+                // if token has been altered or has expired, return an unauthorized error
+                return res
+                    .status(401)
+                    .json({ message: "This session has expired. Please login" });
             }
-            res.status(200).json({ code: 200 });
-        })
+
+            const { id } = decoded; // get user id from the decoded token
+            const user = await User.findById(id); // find user by that `id`
+            const comment = await Comment.findById(_id);
+            if (user.email === comment.email) {
+                const result = await Comment.findByIdAndDelete(_id);
+                if (result.modifiedCount === 1) {
+                    res.status(200).json({ message: 'Comment deleted' });
+                }
+                else {
+                    res.status(204).json({ message: 'Server error' });
+                }
+            }
+            else {
+                res.status(204).json({ message: 'Server error' });
+            }
+        });
     }
     catch (err) {
         res.status(500).json({
@@ -531,79 +505,166 @@ export async function DeleteComment(req, res) {
 };
 
 
+
 /**
- * @route GET /category/:name
+ * @route GET /homePage
+ * @desc Get recipe for home page
+ */
+export async function GetHomePageRecipes(req, res) {
+    try {
+        const value = myCache.get("mainPage");
+
+        if (value !== undefined) return res.status(200).json({ res: value })
+
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA LIMIT 10 `);
+
+        const success = myCache.set("mainPage", result);
+
+        return res.status(200).json({ res: result })
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ error: 'Server error' })
+    }
+
+}
+
+
+
+/**
+ * @route GET /api/category/:category
  * @desc Get recipe for category page
  */
-export function GetCategoryPageRecipes(req, res) {
-    const category = req.param.name;
-    if (typeof category === "string") {
-        const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
+export async function GetCategoryPageRecipes(req, res) {
 
-        db.serialize(() => {
-            db.all(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE strCategory = ? `, [category], (err, meals) => {
-                if (err) {
-                    console.log(err.message);
-                }
-                res.send(meals);
-            });
-        });
+    try {
+        const category = req.params.category;
+        const value = myCache.get(`recipes-${category}`);
 
-        db.close((err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
+        if (value !== undefined) return res.status(200).json({ res: value })
+
+        const result1 = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE strCategory = ?  LIMIT 10 `, [category]);
+        const result2 = await queryDB(`SELECT COUNT(id) as length FROM DATA WHERE strCategory = ?  `, [category]);
+
+        const success = myCache.set(`recipes-${category}`, { rec: result1, num: result2[0].length-1 });
+
+        return res.status(200).json({ res: { rec: result1, num: result2[0].length-1 } })
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ error: 'Server error' })
     }
-    else {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: 'Internal Server Error',
-        });
-    }
+
 }
 
 
 /**
- * @route GET /recipe/:name
- * @desc Get recipe for recipe page
+ * @route GET /api/:category/:number
+ * @desc Get recipes for category page 
  */
-export function GetRecipePageRecipes(req, res) {
-    const name = req.param.name;
-    if (typeof name === "string") {
-        const db = new sqlite.Database(dbData, sqlite.OPEN_READONLY, (err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
+export async function GetCategoryPageRecipesMore(req, res) {
 
-        db.serialize(() => {
-            db.all(`SELECT * FROM DATA WHERE strMeal = ? `, [name], (err, meal) => {
-                if (err) {
-                    console.log(err.message);
-                }
-                res.status(200).json(meal);
+    try {
+        const category = req.params.category;
+        const numb = Number(req.params.number);
 
-            })
-        });
+        const value = myCache.get(`recipes-${category}-${numb}`);
 
-        db.close((err) => {
-            if (err) {
-                console.log(err.message);
-            }
-        })
-    }
-    else {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: 'Internal Server Error',
-        });
+        if (value !== undefined) return res.status(200).json({ res: value })
+
+        const result= await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ?  LIMIT ?, 10 `, [category,numb]);
+
+        const success = myCache.set(`recipes-${category}-${numb}`,  result );
+
+        return res.status(200).json({ res:  result  })
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ error: 'Server error' })
     }
 
+}
+
+
+
+/**
+ * @route GET /api/title/:title
+ * @desc Get recipe description for recipe page
+ */
+export async function GetRecipePageRecipes(req, res) {
+
+    try {
+        const name = req.params.title.replaceAll('-',' ');
+        
+        const value = myCache.get(`name-${name}`)
+
+        if(value !== undefined) return res.status(200).json({res: value})
+
+        const result = await queryDB(`SELECT * FROM DATA WHERE strMeal = ?`, [name])
+        
+        if(result.length === 0) return res.status(200).json({failed:  'No recipe'})
+        
+        const result2 = await queryDB(`SELECT COUNT(*) as length FROM DATA WHERE strCategory = ?  `, [result[0].strCategory]);
+        
+        const success = myCache.set(`name-${name}`, {rec: result[0], num: result2[0].length-1});
+
+        return res.status(200).json({res:  {rec: result[0], num: result2[0].length-1}})
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({error: 'Server error'})
+    }
+
+}
+
+export async function GetPageRecipesMore(req,res) {
+    try {
+        const name = req.params.title.replaceAll('-',' ');
+        const numb = Number(req.params.number);
+
+        const value = myCache.get(`name-${name}-num-${numb}`)
+
+        if(value !== undefined) return res.status(200).json({res: value})
+
+        const category = await queryDB(`SELECT strCategory FROM DATA WHERE strMeal = ?`, [name])
+
+        const result= await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ? AND strMeal != ? LIMIT ?, 10 `, [category[0].strCategory,name,numb]);
+
+        const success = myCache.set(`name-${name}-num-${numb}`, result);
+
+        return res.status(200).json({res: result})
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({error: 'Server error'})
+    }
+}
+
+export async function GetSearch(req, res) {
+    try {
+        const text = '%'+req.params.text.replaceAll('-',' ')+'%';
+        
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ? LIMIT 10`, [text, text, text])
+        const result2 = await queryDB(`SELECT COUNT(id) as length FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ?`, [text, text, text])
+        
+        return res.status(200).json({res:{ rec: result, num: result2[0].length}})
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({error: 'Server error'})
+    }
+    
+}
+
+export async function GetSearchMore(req, res) {
+    try {
+        const text = '%'+req.params.text.replaceAll('-',' ')+'%';
+        const numb = Number(req.params.number)
+        
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ? LIMIT ?, 10`, [text,text,text, numb+10])
+        
+        return res.status(200).json({res: result, })
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({error: 'Server error'})
+    }
+    
 }

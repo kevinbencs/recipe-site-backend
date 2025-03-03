@@ -6,7 +6,7 @@ The frontend code for the website: https://github.com/kevinbencs/recipe-site-fro
 
 The website can be viewed here: https://recipe-deploye.vercel.app/
 
-Technologies used: `node.js, express, sqlite, mongodb, bcrypt, cookie-parser, nodemon, cors, express-validator.`
+Technologies used: `node.js, express, sqlite, mongodb, bcrypt, cookie-parser, nodemon, cors, express-validator., node-cache`
 
 <br/><br/>
 
@@ -55,10 +55,10 @@ The `verify.js` file in the `middleware` directory defines the `Verify` function
 ## Requests
 
 
-POST /register
+POST /signup
 Registers a user
 
-POST /login
+POST /signin
 logs in a user
 
 GET /logout
@@ -76,8 +76,6 @@ Send comment
 POST /newsletter
 Subsribe for newsletter
 
-POST /
-Get recipe for home page
  
 PATCH /updatecomment/:recipeId
 Update a comment
@@ -85,11 +83,29 @@ Update a comment
 DELETE /deletecomment/:recipeId
 Delete a comment
 
-GET /category/:name
-Get recipe for category page
+GET /api/search/:text
+GET search meal
 
-GET /recipe/:name
+GET /api/search/:text/:number
+GET search meal
+
+GET /api/comments/:recipeId
+GET comments
+
+GET /api/morerecipe/:title/:number
+Get recipes for recipe page
+
+GET/api/title/:title
 Get recipe for recipe page
+
+GET /api/category/:category
+Get recipes for category page
+
+GET /api/:category/:number
+Get recipes for category page
+
+GET /homePage
+Get recipes for home page
  
 
 
