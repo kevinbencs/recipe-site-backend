@@ -6,9 +6,23 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import { PORT, URI } from "./src/config/config.js";
 import App from "./src/routes/index.js";
-import {db} from "./src/db/db.js";
+import { db } from "./src/db/db.js";
+import { cacheFunction } from "./src/db/db.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+async function queryDB(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) { console.log(err); reject(err); }
+            else resolve(rows);
+        });
+    });
+}
+
+
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 
 const server = express();
 server.use(cors());
@@ -25,8 +39,7 @@ server.use(App);
 mongoose.promise = global.Promise;
 mongoose.set("strictQuery", false);
 mongoose
-    .connect(URI, {
-    })
+    .connect(URI, {})
     .then(console.log("Connected to database"))
     .catch((err) => console.log(err));
 
@@ -39,7 +52,7 @@ server.get("*", (req, res) => {
     res.sendFile(path.join(__dirname, './public/index.html'))
 });
 
-process.on('SIGINT', async() => {
+process.on('SIGINT', async () => {
     await mongoose.disconnect();
     db.close((err) => {
         if (err) {
@@ -50,3 +63,6 @@ process.on('SIGINT', async() => {
         process.exit(0);
     });
 });
+
+
+cacheFunction()

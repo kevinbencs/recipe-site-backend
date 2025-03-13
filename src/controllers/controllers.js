@@ -5,21 +5,20 @@ import jwt from "jsonwebtoken";
 import { SECRET_ACCESS_TOKEN } from '../config/config.js';
 import Newsletter from "../models/newsletter.js";
 import Comment from "../models/comment.js";
-import NodeCache from "node-cache";
+import { myCache } from "../db/db.js";
 import { db } from "../db/db.js";
 
-
-const myCache = new NodeCache();
 
 
 async function queryDB(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (err, rows) => {
-            if (err) {console.log(err) ;reject(err);}
+            if (err) { console.log(err); reject(err); }
             else resolve(rows);
         });
     });
 }
+
 
 
 /**
@@ -28,7 +27,6 @@ async function queryDB(sql, params = []) {
  */
 export async function Register(req, res) {
     // get required variables from request body
-    // using es6 object destructing
     const { name, email, password, newsletter } = req.body;
     try {
 
@@ -43,8 +41,7 @@ export async function Register(req, res) {
         console.log(existingUser);
         if (existingUser)
             return res.status(400).json({
-                status: "failed",
-                message: ["It seems you already have an account, please log in instead."],
+                error: "It seems you already have an account, please log in instead.",
             });
 
         await newUser.save(); // save new user into the database
@@ -65,19 +62,15 @@ export async function Register(req, res) {
                 await newNewsletter.save();
             }
         }
-        res.status(200).json({
-            status: 'success',
-            message:
-                'Thank you for registering with us. Your account has been successfully created.',
+        return res.status(200).json({
+            success: 'Thank you for registering with us. Your account has been successfully created.',
         });
     } catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: ['Internal Server Error'],
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
-    res.end();
 }
 
 
@@ -93,8 +86,7 @@ export async function Login(req, res) {
         const user = await User.findOne({ email }).select("+password");
         if (!user)
             return res.status(401).json({
-                status: "failed",
-                message: ["Account does not exist"],
+                error: "Account does not exist",
             });
 
         // if user exists
@@ -107,32 +99,26 @@ export async function Login(req, res) {
         // if not valid, return unathorized response
         if (!isPasswordValid)
             return res.status(401).json({
-                status: "failed",
-                message:
-                    ["Invalid email or password. Please try again with the correct credentials."],
+                error: "Invalid email or password. Please try again with the correct credentials.",
             });
 
         let options = {
             httpOnly: true, // The cookie is only accessible by the web server
-            secure: false,
+            secure: true,
             sameSite: 'lax'
         };
 
         const token = user.generateAccessJWT(); // generate session token for user
         res.cookie("SessionID", token, options); // set the token to response header, so that the client sends it back on each subsequent request
-        res.status(200).json({
-            status: "success",
-            data: user.name,
-            message: "You have successfully logged in.",
+        return res.status(200).json({
+            success: user.name
         });
     } catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: ["Internal Server Error"],
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server error'
         });
     }
-    res.end();
 }
 
 
@@ -144,28 +130,51 @@ export async function Login(req, res) {
 export async function Logout(req, res) {
     try {
         const Header = req.headers['cookie']; // get the session cookie from request header
-        if (!Header) return res.sendStatus(204); // No content
-        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-        const accessToken = cookie.split(';')[0];
+        if (!Header) return res.status(200).json({ success: 'You are logged out!' });
+        const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+        if(!cookie) return res.status(200).json({ success: 'You are logged out!' });
+        const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
         // if true, send a no content response.
-        if (checkIfBlacklisted) return res.sendStatus(204);
+        if (checkIfBlacklisted) return res.status(200).json({ success: 'You are logged out!' });
         // otherwise blacklist token
         const newBlacklist = new Blacklist({
             token: accessToken,
         });
         await newBlacklist.save();
         // Also clear request cookie on client
-        res.setHeader('Clear-Site-Data', '"cookies"');
-        res.status(200).json({ message: 'You are logged out!' });
+        res.clearCookie("SessionID", {
+            httpOnly: true, 
+            secure: true,
+            sameSite: 'lax'
+        })
+        return res.status(200).json({ success: 'You are logged out!' });
     } catch (err) {
-        res.status(500).json({
-            status: 'error',
-            message: ['Internal Server Error'],
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
-    res.end();
 };
+
+
+/**
+ * @route POST /api/forgotpassword
+ * @desc Change password
+ */
+
+export async function ForgotPassword(req, res) {
+    try {
+        const email = req.body.email;
+
+        return res.status(200).json({success: 'Sorry, we cannot send email.'})
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({
+            error: 'Server Error',
+        });
+    }
+}
 
 /**
  * @route POST /newpassword
@@ -176,44 +185,36 @@ export async function updatePassword(req, res) {
         const Header = req.headers['cookie'];// get the session cookie from request header
         let newPassword = String(req.body.password);
 
-        if (!Header) return res.sendStatus(401); // No content
-        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-        const accessToken = cookie.split(';')[0];
+        if (!Header) return res.status(401).json({error: 'Please log in.'}); // No content
+        const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+        if(!cookie) return res.status(401).json({error: 'Please log in.'});
+        const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
         // if true, send a no content response.
-        if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+        if (checkIfBlacklisted) return res.status(401).json({ error: "This session has expired. Please login" });
 
-        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-            if (err) {
-                // if token has been altered or has expired, return an unauthorized error
-                return res
-                    .status(401)
-                    .json({ message: "This session has expired. Please login" });
-            }
+        const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
 
-            const { id } = decoded; // get user id from the decoded token
-            const user = await User.findById(id); // find user by that `id`
-            const result = await User.updateOne({ email: user.email }, { $set: { password: newPassword } });
+        const { id } = decoded; // get user id from the decoded token
+        const user = await User.findById(id); // find user by that `id`
+        const result = await User.updateOne({ email: user.email }, { $set: { password: newPassword } });
 
-            if (result.modifiedCount === 1) {
-                res.status(200).json({
-                    status: 'success',
-                    message: 'Password changed.'
-                })
-            }
-            else {
-                res.status(204).json({
-                    status: "failed",
-                    message: "New password and old password are same."
-                })
-            }
-        });
+        if (result.modifiedCount === 1) {
+            return res.status(200).json({
+                success: 'Password changed.'
+            })
+        }
+        else {
+            return res.status(200).json({
+                error: "New password and old password are same."
+            })
+        }
+
     }
     catch (err) {
-        console.log(err.message);
-        res.status(500).json({
-            status: 'error',
-            message: 'Internal Server Error',
+        console.log(err);
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
 };
@@ -227,58 +228,72 @@ export async function GetComments(req, res) {
     try {
         const mealId = String(req.params.recipeId);
         const Header = req.headers['cookie'];// get the session cookie from request header
-        
+
         if (!Header) {
             const rows = await Comment.find({ mealId: mealId });
             if (rows.length !== 0) {
-                res.status(200).json(rows);
+                return res.status(200).json(rows);
             }
             else {
-                res.status(200).json([]);
+                return res.status(200).json([]);
             }
-
-            return
         }
         else {
 
-            const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-            const accessToken = cookie.split(';')[0];
+            
+            const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+            if(!cookie) {
+                const rows = await Comment.find({ mealId: mealId });
+            if (rows.length !== 0) {
+                return res.status(200).json(rows);
+            }
+            else {
+                return res.status(200).json([]);
+            }
+            }
+            const accessToken = cookie.split("=")[1];
             const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
 
-            jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-
-                if (err) {
-                    // if token has been altered or has expired, return an unauthorized error
-                    return res
-                        .status(401)
-                        .json({ message: "This session has expired. Please login" });
-
-                }
-
-                const { id } = decoded; // get user id from the decoded token
-                const user = await User.findById(id); // find user by that `id`
-
+            if (checkIfBlacklisted) {
                 const rows = await Comment.find({ mealId: mealId });
+
                 if (rows.length !== 0) {
-                    for (let i = 0; i < rows.length; i++) {
-                        if (rows[i].email === user.email) rows[i].canChange = 'true';
-                    }
-                    res.status(200).json(rows);
+
+                    return res.status(200).json(rows);
                 }
                 else {
 
-                    res.status(200).json([]);
+                    return res.status(200).json([]);
                 }
 
-            });
+            }
+
+            const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
+
+            const { id } = decoded; // get user id from the decoded token
+            const user = await User.findById(id); // find user by that `id`
+
+            const rows = await Comment.find({ mealId: mealId });
+
+            if (rows.length !== 0) {
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i].email === user.email) rows[i].canChange = 'true';
+                }
+                return res.status(200).json(rows);
+            }
+            else {
+
+                return res.status(200).json([]);
+            }
+
+
         }
 
     }
     catch (err) {
-        console.log(err.message);
-        res.status(500).json({
-            status: 'error',
-            message: 'Internal Server Error',
+        console.log(err);
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
 };
@@ -290,48 +305,41 @@ export async function GetComments(req, res) {
  */
 export async function SendComment(req, res) {
     try {
-        const mealId = String(req.body.recipeId);
+        const mealId = String(req.params.recipeId);
         const comment = req.body.comment;
         const Header = req.headers['cookie'];// get the session cookie from request header
-
-        if (!Header) return res.sendStatus(201); // No content
-        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-        const accessToken = cookie.split(';')[0];
+        
+        if (!Header) return res.status(401).json({ error: "Please login" }); // No content
+        const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+        if(!cookie) return res.status(204).json({ error: "Please login" }); // No content
+        const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
         // if true, send a no content response.
-        if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+        if (checkIfBlacklisted) return res.status(401).json({ error: "This session has expired. Please login" });
 
-        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-            if (err) {
-                // if token has been altered or has expired, return an unauthorized error
-                return res
-                    .status(401)
-                    .json({ message: "This session has expired. Please login" });
-            }
+        const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
 
-            const { id } = decoded; // get user id from the decoded token
-            const user = await User.findById(id); // find user by that `id`
+        const { id } = decoded; // get user id from the decoded token
+        const user = await User.findById(id); // find user by that `id`
 
 
-            const newComment = new Comment({
-                comment,
-                mealId,
-                email: user.email,
-                name: user.name,
-                canChange: 'false'
-            })
+        const newComment = new Comment({
+            comment,
+            mealId,
+            email: user.email,
+            name: user.name,
+            canChange: 'false'
+        })
 
-            await newComment.save();
+        await newComment.save();
 
-            res.status(200).json({ message: 'Comment saved' });
+        return res.status(200).json({ success: 'Comment saved' });
 
-        });
     }
     catch (err) {
-        console.log(err.message);
-        res.status(500).json({
-            status: 'error',
-            message: 'Internal Server Error',
+        console.log(err);
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
 };
@@ -361,33 +369,27 @@ export async function Subscribe(req, res) {
         const existingNewsletter = await Newsletter.findOne({ email });
         if (existingNewsletter) {
             return res.status(400).json({
-                status: "failed",
-                message: "It seems you already have a subscription.",
+                error: "It seems you already have a subscription."
             });
         }
 
         if (newUser.meat === 'false' && newUser.vegetarian === 'false' && newUser.dessert === 'false' &&
             newUser.pasta === 'false' && newUser.seafood === 'false' && newUser.side === 'false')
             return res.status(400).json({
-                status: "failed",
-                message: "Please select min one option.",
+                error: "Please select min one option."
             });
 
         await newUser.save(); // save new user into the database
-        res.status(200).json({
-            status: 'success',
-            message:
+        return res.status(200).json({
+            success:
                 'Thank you for your subscription.',
         });
     } catch (err) {
-        console.log(err.message)
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: ['Internal Server Error'],
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
-    res.end();
 };
 
 
@@ -399,58 +401,48 @@ export async function Subscribe(req, res) {
  */
 export async function UpdateComment(req, res) {
     const comment = req.body.comment;
-    const _id = req.body.id;
-    if (typeof comment === 'string') {
-        try {
+    const _id = req.params.Id;
 
-            const Header = req.headers['cookie'];// get the session cookie from request header
+    try {
 
-            if (!Header) return res.sendStatus(401); // No content
-            const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-            const accessToken = cookie.split(';')[0];
-            const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
-            // if true, send a no content response.
-            if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+        const Header = req.headers['cookie'];// get the session cookie from request header
 
-            jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-                if (err) {
-                    // if token has been altered or has expired, return an unauthorized error
-                    return res
-                        .status(401)
-                        .json({ message: "This session has expired. Please login" });
-                }
+        if (!Header) return res.status(401).json({ error: " Please login" });
+        
+        const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+        const accessToken = cookie.split("=")[1];
+        if(!cookie) return res.status(401).json({ error: "Please login" });; // No content
+        const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
+        // if true, send a no content response.
+        if (checkIfBlacklisted) return res.status(401).json({ error: "This session has expired. Please login" });
 
-                const { id } = decoded; // get user id from the decoded token
-                const user = await User.findById(id); // find user by that `id`
-                const commentResult = await Comment.findById(_id);
+        const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
 
-                if (user.email === commentResult.email) {
-                    const result = await Comment.findByIdAndUpdate(_id, { $set: { comment: comment } }) //pdateOne({ id: _id }, );
-                    if (result.modifiedCount === 1) {
-                        res.status(200).json({ message: 'Comment updated' });
-                    }
-                    else {
-                        res.status(204).json({ message: 'Server error' });
-                    }
-                }
-                else {
-                    res.status(204).json({ message: 'Server error' });
-                }
-            });
+        const { id } = decoded; // get user id from the decoded token
+        const user = await User.findById(id); // find user by that `id`
+        const commentResult = await Comment.findById(_id);
+
+        if (user.email === commentResult.email) {
+            const result = await Comment.findByIdAndUpdate(_id, { $set: { comment: comment } }) 
+            if (result) {
+                return res.status(204)
+            }
+            else {
+                return res.status(500).json({ error: 'Server error' });
+            }
         }
-        catch (err) {
-            res.status(500).json({
-                status: "error",
-                code: 500,
-                message: 'Internal Server Error',
-            });
+        else {
+            return res.status(402).json({ error: 'You cannot change this comment' });
         }
+
     }
-    else {
-        res.status(402).json({
-            status: "error"
+    catch (err) {
+        console.log(err)
+        return res.status(500).json({
+            error: "Server error"
         });
     }
+
 };
 
 /**
@@ -458,48 +450,44 @@ export async function UpdateComment(req, res) {
  * @desc Delete a comment
  */
 export async function DeleteComment(req, res) {
-    const _id = req.body.id;
+    const _id = req.params.id;
     try {
-        console.log(_id);
+
         const Header = req.headers['cookie'];// get the session cookie from request header
 
-        if (!Header) return res.sendStatus(401); // No content
-        const cookie = Header.split('=')[1]; // If there is, split the cookie string to get the actual jwt token
-        const accessToken = cookie.split(';')[0];
+        if (!Header) return res.status(401).json({ error: 'Please login' }); // No content
+        const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
+        if(!cookie) return res.status(401).json({ error: "Please login" });; // No content
+        const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
         // if true, send a no content response.
-        if (checkIfBlacklisted) return res.sendStatus(401).json({ message: "This session has expired. Please login" });
+        if (checkIfBlacklisted) return res.status(401).json({ error: "This session has expired. Please login" });
 
-        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-            if (err) {
-                // if token has been altered or has expired, return an unauthorized error
-                return res
-                    .status(401)
-                    .json({ message: "This session has expired. Please login" });
-            }
+        const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
 
-            const { id } = decoded; // get user id from the decoded token
-            const user = await User.findById(id); // find user by that `id`
-            const comment = await Comment.findById(_id);
-            if (user.email === comment.email) {
-                const result = await Comment.findByIdAndDelete(_id);
-                if (result.modifiedCount === 1) {
-                    res.status(200).json({ message: 'Comment deleted' });
-                }
-                else {
-                    res.status(204).json({ message: 'Server error' });
-                }
+        const { id } = decoded; // get user id from the decoded token
+        const user = await User.findById(id); // find user by that `id`
+        const comment = await Comment.findById(_id);
+        if (user.email === comment.email) {
+            const result = await Comment.findByIdAndDelete(_id);
+
+            if (result) {
+
+                return res.status(204);
             }
             else {
-                res.status(204).json({ message: 'Server error' });
+                return res.status(500).json({ error: 'Comment not deleted' });
             }
-        });
+        }
+        else {
+            return res.status(401).json({ error: 'You cannot delete this comment' });
+        }
+
     }
     catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            message: 'Internal Server Error',
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server Error',
         });
     }
 };
@@ -514,7 +502,9 @@ export async function GetHomePageRecipes(req, res) {
     try {
         const value = myCache.get("mainPage");
 
-        if (value !== undefined) return res.status(200).json({ res: value })
+        if (value !== undefined) {
+            return res.status(200).json({ res: value })
+        }
 
         const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA LIMIT 10 `);
 
@@ -540,14 +530,16 @@ export async function GetCategoryPageRecipes(req, res) {
         const category = req.params.category;
         const value = myCache.get(`recipes-${category}`);
 
-        if (value !== undefined) return res.status(200).json({ res: value })
+        if (value !== undefined) {
+            return res.status(200).json({ res: value })
+        }
 
         const result1 = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE strCategory = ?  LIMIT 10 `, [category]);
         const result2 = await queryDB(`SELECT COUNT(id) as length FROM DATA WHERE strCategory = ?  `, [category]);
 
-        const success = myCache.set(`recipes-${category}`, { rec: result1, num: result2[0].length-1 });
+        const success = myCache.set(`recipes-${category}`, { rec: result1, num: result2[0].length - 1 });
 
-        return res.status(200).json({ res: { rec: result1, num: result2[0].length-1 } })
+        return res.status(200).json({ res: { rec: result1, num: result2[0].length - 1 } })
     } catch (error) {
         console.log(error)
         return res.status(500).json({ error: 'Server error' })
@@ -570,11 +562,11 @@ export async function GetCategoryPageRecipesMore(req, res) {
 
         if (value !== undefined) return res.status(200).json({ res: value })
 
-        const result= await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ?  LIMIT ?, 10 `, [category,numb]);
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ?  LIMIT ?, 10 `, [category, numb]);
 
-        const success = myCache.set(`recipes-${category}-${numb}`,  result );
+        const success = myCache.set(`recipes-${category}-${numb}`, result);
 
-        return res.status(200).json({ res:  result  })
+        return res.status(200).json({ res: result })
     } catch (error) {
         console.log(error)
         return res.status(500).json({ error: 'Server error' })
@@ -591,80 +583,80 @@ export async function GetCategoryPageRecipesMore(req, res) {
 export async function GetRecipePageRecipes(req, res) {
 
     try {
-        const name = req.params.title.replaceAll('-',' ');
+        const name = req.params.title.replaceAll('-', ' ');
         
         const value = myCache.get(`name-${name}`)
-
-        if(value !== undefined) return res.status(200).json({res: value})
+        
+        if (value !== undefined) {return res.status(200).json({ res: value })}
 
         const result = await queryDB(`SELECT * FROM DATA WHERE strMeal = ?`, [name])
-        
-        if(result.length === 0) return res.status(200).json({failed:  'No recipe'})
-        
-        const result2 = await queryDB(`SELECT COUNT(*) as length FROM DATA WHERE strCategory = ?  `, [result[0].strCategory]);
-        
-        const success = myCache.set(`name-${name}`, {rec: result[0], num: result2[0].length-1});
 
-        return res.status(200).json({res:  {rec: result[0], num: result2[0].length-1}})
+        if (result.length === 0) return res.status(200).json({ failed: 'No recipe' })
+
+        const result2 = await queryDB(`SELECT COUNT(*) as length FROM DATA WHERE strCategory = ?  `, [result[0].strCategory]);
+
+        const success = myCache.set(`name-${name}`, { rec: result[0], num: result2[0].length - 1 });
+
+        return res.status(200).json({ res: { rec: result[0], num: result2[0].length - 1 } })
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({error: 'Server error'})
+        return res.status(500).json({ error: 'Server error' })
     }
 
 }
 
-export async function GetPageRecipesMore(req,res) {
+export async function GetPageRecipesMore(req, res) {
     try {
-        const name = req.params.title.replaceAll('-',' ');
+        const name = req.params.title.replaceAll('-', ' ');
         const numb = Number(req.params.number);
 
         const value = myCache.get(`name-${name}-num-${numb}`)
 
-        if(value !== undefined) return res.status(200).json({res: value})
+        if (value !== undefined) return res.status(200).json({ res: value })
 
         const category = await queryDB(`SELECT strCategory FROM DATA WHERE strMeal = ?`, [name])
 
-        const result= await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ? AND strMeal != ? LIMIT ?, 10 `, [category[0].strCategory,name,numb]);
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA  WHERE strCategory = ? AND strMeal != ? LIMIT ?, 10 `, [category[0].strCategory, name, numb]);
 
         const success = myCache.set(`name-${name}-num-${numb}`, result);
 
-        return res.status(200).json({res: result})
+        return res.status(200).json({ res: result })
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({error: 'Server error'})
+        return res.status(500).json({ error: 'Server error' })
     }
 }
 
 export async function GetSearch(req, res) {
     try {
-        const text = '%'+req.params.text.replaceAll('-',' ')+'%';
-        
+        const text = '%' + req.params.text.replaceAll('-', ' ') + '%';
+
         const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ? LIMIT 10`, [text, text, text])
         const result2 = await queryDB(`SELECT COUNT(id) as length FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ?`, [text, text, text])
-        
-        return res.status(200).json({res:{ rec: result, num: result2[0].length}})
+
+        return res.status(200).json({ res: { rec: result, num: result2[0].length } })
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({error: 'Server error'})
+        return res.status(500).json({ error: 'Server error' })
     }
-    
+
 }
 
 export async function GetSearchMore(req, res) {
     try {
-        const text = '%'+req.params.text.replaceAll('-',' ')+'%';
+        const text = '%' + req.params.text.replaceAll('-', ' ') + '%';
         const numb = Number(req.params.number)
-        
-        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ? LIMIT ?, 10`, [text,text,text, numb+10])
-        
-        return res.status(200).json({res: result, })
+
+        const result = await queryDB(`SELECT strMeal, strCategory, strInstructions, strMealThumb, id FROM DATA WHERE  strMeal LIKE ? OR  strCategory LIKE ?  OR strInstructions LIKE ? LIMIT ?, 10`, [text, text, text, numb + 10])
+
+        return res.status(200).json({ res: result, })
 
     } catch (error) {
         console.log(error);
-        return res.status(500).json({error: 'Server error'})
+        return res.status(500).json({ error: 'Server error' })
     }
-    
+
 }

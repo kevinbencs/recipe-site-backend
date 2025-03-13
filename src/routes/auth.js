@@ -1,5 +1,5 @@
 import express from "express";
-import { Register, Login, Logout, updatePassword, GetComments, SendComment, Subscribe, GetHomePageRecipes, UpdateComment, DeleteComment, GetCategoryPageRecipes, GetRecipePageRecipes } from "../controllers/controllers.js";
+import { Register, Login, Logout, updatePassword, GetComments, SendComment, Subscribe, GetHomePageRecipes, UpdateComment, DeleteComment, GetCategoryPageRecipes, GetRecipePageRecipes, GetCategoryPageRecipesMore, GetPageRecipesMore, GetSearch, GetSearchMore, ForgotPassword } from "../controllers/controllers.js";
 import Validate from "../middleware/validate.js";
 import { check } from "express-validator";
 
@@ -23,9 +23,10 @@ router.post(
             minLength: 8,
             minLowercase: 1,
             minUppercase: 1,
-            minNumbers: 1
+            minNumbers: 1,
+            minSymbols: 1
         })
-        .withMessage("Password must be greater than 8 and contain at least one uppercase letter, one lowercase letter, and one number."),
+        .withMessage("Password should be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character."),
     check("password2")
         .custom((value, { req }) => {
             return value === req.body.password;
@@ -55,7 +56,7 @@ router.post(
 // Logout route == GET request
 router.get('/logout', Logout);
 
-//New password route == PATCH request
+//New password route == POST request
 router.patch(
     "/newpassword",
     check("password")
@@ -64,9 +65,10 @@ router.patch(
             minLength: 8,
             minLowercase: 1,
             minUppercase: 1,
-            minNumbers: 1
+            minNumbers: 1,
+            minSymbols: 1
         })
-        .withMessage("Password must be greater than 8 and contain at least one uppercase letter, one lowercase letter, and one number."),
+        .withMessage("Password should be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character."),
     check("password2")
         .custom((value, { req }) => {
             return value === req.body.password;
@@ -76,8 +78,7 @@ router.patch(
     updatePassword
 );
 
-//GET comments route == GET requestS
-router.get('/getcomment/:recipeId', GetComments);
+
 
 //Send comments route == POST requestS
 router.post('/sendcomment/:recipeId',
@@ -103,8 +104,8 @@ router.post('/newsletter',
     Subscribe
 );
 
-//Edit a comment router == PATCH request
-router.patch('/updatecomment/:recipeId',
+//Edit a comment router == POST request
+router.patch('/updatecomment/:Id',
     check("comment")
         .notEmpty()
         .withMessage("Comment is empty. Please change the comment or delete"),
@@ -113,10 +114,18 @@ router.patch('/updatecomment/:recipeId',
 );
 
 
-//Delete a comment router == Delete request
-router.delete('/deletecomment/:recipeId', DeleteComment);
+router.post('/api/forgotpassword',
+    check("email")
+    .isEmail()
+        .withMessage("Enter a valid email address.")
+        .normalizeEmail(),
+    Validate,
+    ForgotPassword
+)
 
 
+//Delete a comment router == POST request
+router.delete('/deletecomment/:id', DeleteComment);
 
 //GET search meal route == GET request
 router.get('/api/search/:text',GetSearch);
@@ -141,5 +150,9 @@ router.get('/api/:category/:number', GetCategoryPageRecipesMore);
 
 //Get recipes for home page router == GET request
 router.get('/homePage', GetHomePageRecipes);
+
+
+
+
 
 export default router;

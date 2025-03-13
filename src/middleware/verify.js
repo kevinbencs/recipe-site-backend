@@ -6,36 +6,31 @@ import jwt from "jsonwebtoken";
 export async function Verify(req, res, next) {
     try {
         const authHeader = req.headers["cookie"]; // get the session cookie from request header
+        if (!authHeader) return res.status(201).json({ name: '' }); // if there is no cookie from request header, send an unauthorized response.
+        const cookie = authHeader.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
 
-        if (!authHeader) return res.status(200).json({name: 'undefined'}); // if there is no cookie from request header, send an unauthorized response.
-        const cookie = authHeader.split("=")[1]; // If there is, split the cookie string to get the actual jwt
-        const accessToken = cookie.split(";")[0];
+        if(!cookie) return res
+        .status(201)
+        .json({ message: "This session has expired. Please login", name: '' });
+        const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
 
         if (checkIfBlacklisted)
             return res
-                .status(401)
-                .json({ message: "This session has expired. Please login" });
-                
-        jwt.verify(accessToken, SECRET_ACCESS_TOKEN, async (err, decoded) => {
-            if (err) {
-                // if token has been altered or has expired, return an unauthorized error
-                return res
-                    .status(401)
-                    .json({ message: "This session has expired. Please login" });
-            }
+                .status(201)
+                .json({ message: "This session has expired. Please login", name: '' });
 
-            const { id } = decoded; // get user id from the decoded token
-            const user = await User.findById(id); // find user by that `id`
-            res.status(200).json({ name: user.name });
-            next();
-        });
+        const decoded = jwt.verify(accessToken, SECRET_ACCESS_TOKEN)
+
+        const { id } = decoded; // get user id from the decoded token
+        const user = await User.findById(id); // find user by that `id`
+        return res.status(200).json({ name: user.name });
+        
+
     } catch (err) {
-        res.status(500).json({
-            status: "error",
-            code: 500,
-            data: [],
-            message: "Internal Server Error",
+        console.log(err)
+        return res.status(500).json({
+            error: 'Server error'
         });
     }
 }
