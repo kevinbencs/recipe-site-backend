@@ -10,7 +10,7 @@ router.post(
     "/signup",
     check("name")
         .notEmpty()
-        .withMessage("You name is required.")
+        .withMessage("Your name is required.")
         .trim()
         .escape(),
     check("email")
@@ -104,7 +104,7 @@ router.post('/newsletter',
     Subscribe
 );
 
-//Edit a comment router == POST request
+//Edit a comment router == PATCH request
 router.patch('/updatecomment/:Id',
     check("comment")
         .notEmpty()

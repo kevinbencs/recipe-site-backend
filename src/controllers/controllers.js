@@ -205,7 +205,7 @@ export async function updatePassword(req, res) {
             })
         }
         else {
-            return res.status(200).json({
+            return res.status(400).json({
                 error: "New password and old password are same."
             })
         }
@@ -221,7 +221,7 @@ export async function updatePassword(req, res) {
 
 
 /**
- * @route POST /getcomment
+ * @route GET /api/comments/:recipeId
  * @desc Get comments
  */
 export async function GetComments(req, res) {
@@ -311,7 +311,7 @@ export async function SendComment(req, res) {
         
         if (!Header) return res.status(401).json({ error: "Please login" }); // No content
         const cookie = Header.split(";").filter(item => item.indexOf('SessionID') > -1)[0]; // If there is, split the cookie string to get the actual jwt
-        if(!cookie) return res.status(204).json({ error: "Please login" }); // No content
+        if(!cookie) return res.status(401).json({ error: "Please login" }); // No content
         const accessToken = cookie.split("=")[1];
         const checkIfBlacklisted = await Blacklist.findOne({ token: accessToken }); // Check if that token is blacklisted
         // if true, send a no content response.
@@ -396,7 +396,7 @@ export async function Subscribe(req, res) {
 
 
 /**
- * @route POST /updatecomment
+ * @route PATCH /updatecomment/:id
  * @desc Update a comment
  */
 export async function UpdateComment(req, res) {
@@ -432,7 +432,7 @@ export async function UpdateComment(req, res) {
             }
         }
         else {
-            return res.status(402).json({ error: 'You cannot change this comment' });
+            return res.status(401).json({ error: 'You cannot change this comment' });
         }
 
     }
@@ -446,7 +446,7 @@ export async function UpdateComment(req, res) {
 };
 
 /**
- * @route POST /deletecomment
+ * @route Delete /deletecomment/:id
  * @desc Delete a comment
  */
 export async function DeleteComment(req, res) {
@@ -605,6 +605,13 @@ export async function GetRecipePageRecipes(req, res) {
     }
 
 }
+
+
+
+/**
+ * @route GET /api/morerecipe/:title/:number
+ * @desc Get recipes for recipe page
+ */
 
 export async function GetPageRecipesMore(req, res) {
     try {
