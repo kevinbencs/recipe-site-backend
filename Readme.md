@@ -139,6 +139,7 @@ Code   Description
 
 Body:
 ```
+password: string
 ```
 
 Return:
@@ -456,6 +457,7 @@ Code   Description
 200    res: row[]
 ```
 
+```
 row:
     strMeal: string,
     strCategory: string,
@@ -488,6 +490,7 @@ row:
 ```
 
 Error:
+
 ```
 Code   Description
 500    error: 'Server error'
