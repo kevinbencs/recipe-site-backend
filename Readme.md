@@ -201,7 +201,7 @@ Code   Description
 401    error: "This session has expired. Please login"
 ```
 
-- POST /newsletter: Subsribe for newsletter
+- POST /newsletter: Subscribe to the newsletter
 
 Body:
 ```
@@ -472,7 +472,7 @@ Code   Description
 500    error: 'Server error'
 ```
  
-- GET /homePage: Get recipes for home page
+- GET /homePage: Get recipes for the home page
 
 Return:
 ```
